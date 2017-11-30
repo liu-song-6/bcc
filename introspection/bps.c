@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <sysexits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "libbpf.h"
 
@@ -83,8 +86,8 @@ static int handle_get_next_errno(int eno)
 
 static void print_prog_hdr(void)
 {
-  printf("%9s %-15s %8s %6s %-12s %-15s\n",
-         "BID", "TYPE", "UID", "#MAPS", "LoadTime", "NAME");
+  printf("%9s %-15s %8s %6s %-12s %-15s %8s %16s\n",
+         "BID", "TYPE", "UID", "#MAPS", "LoadTime", "NAME", "SIZE", "TAG");
 }
 
 static void print_prog_info(const struct bpf_prog_info *prog_info)
@@ -95,6 +98,13 @@ static void print_prog_info(const struct bpf_prog_info *prog_info)
   const char *prog_type;
   char load_time[16];
   struct tm load_tm;
+  char prog_tag[sizeof(prog_info->tag) * 2 + 1] = {0};
+  int i;
+  int fd;
+
+  for (i = 0; i < sizeof(prog_info->tag); ++i) {
+    sprintf(prog_tag + 2 * i, "%02x", prog_info->tag[i]);
+  }
 
   if (prog_info->type > LAST_KNOWN_PROG_TYPE) {
     snprintf(unknown_prog_type, sizeof(unknown_prog_type), "<%u>",
@@ -119,14 +129,28 @@ static void print_prog_info(const struct bpf_prog_info *prog_info)
              prog_info->load_time / 1000000000);
   load_time[sizeof(load_time) - 1] = '\0';
 
-  if (prog_info->jited_prog_len)
-    printf("%9u %-15s %8u %6u %-12s %-15s\n",
+  fd = open("bpf_prog.bin", O_WRONLY | O_CREAT);
+  if (fd < 0) {
+    fprintf(stderr, "Cannot open bpf_prog.bin for write\n");
+    return;
+  }
+
+  if (prog_info->jited_prog_len) {
+    printf("%9u %-15s %8u %6u %-12s %-15s %8u %16s\n",
            prog_info->id, prog_type, prog_info->created_by_uid,
-           prog_info->nr_map_ids, load_time, prog_info->name);
-  else
-    printf("%8u- %-15s %8u %6u %-12s %-15s\n",
+           prog_info->nr_map_ids, load_time, prog_info->name,
+           prog_info->jited_prog_len, prog_tag);
+    write(fd, u64_to_ptr(prog_info->jited_prog_insns),
+          prog_info->jited_prog_len);
+  } else {
+    printf("%8u- %-15s %8u %6u %-12s %-15s %8u %16s\n",
            prog_info->id, prog_type, prog_info->created_by_uid,
-           prog_info->nr_map_ids, load_time, prog_info->name);
+           prog_info->nr_map_ids, load_time, prog_info->name,
+           prog_info->xlated_prog_len, prog_tag);
+    write(fd, u64_to_ptr(prog_info->xlated_prog_insns),
+          prog_info->xlated_prog_len);
+  }
+  close(fd);
 }
 
 static void print_map_hdr(void)
