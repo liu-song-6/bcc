@@ -12,6 +12,7 @@
 
 #include <signal.h>
 #include <iostream>
+#include <iomanip>
 
 #include "BPF.h"
 
@@ -32,8 +33,10 @@ struct event_t {
   char comm[16];
   int cpu;
   int got_bits;
+  int user_stackid;
 };
 
+BPF_STACK_BUILD_ID_OFFSET_TRACE(stack_traces, 64);
 BPF_PERF_OUTPUT(events);
 
 int on_urandom_read(struct urandom_read_args* attr) {
@@ -42,6 +45,9 @@ int on_urandom_read(struct urandom_read_args* attr) {
   bpf_get_current_comm(&event.comm, sizeof(event.comm));
   event.cpu = bpf_get_smp_processor_id();
   event.got_bits = attr->got_bits;
+
+  event.user_stackid = stack_traces.get_stackid(attr,
+     BPF_F_REUSE_STACKID | BPF_F_USER_STACK);
 
   events.perf_submit(attr, &event, sizeof(event));
   return 0;
@@ -54,18 +60,35 @@ struct event_t {
   char comm[16];
   int cpu;
   int got_bits;
+  int user_stackid;
 };
 
 void handle_output(void* cb_cookie, void* data, int data_size) {
   auto event = static_cast<event_t*>(data);
   std::cout << "PID: " << event->pid << " (" << event->comm << ") on CPU "
             << event->cpu << " read " << event->got_bits << " bits"
+            << " stackid " << event->user_stackid
             << std::endl;
 }
 
 ebpf::BPF* bpf;
 
 void signal_handler(int s) {
+  auto stacks = bpf->get_stack_buidid_offset_table("stack_traces");
+
+  for (int i = 0; i < 64; ++i) {
+    auto id_offs = stacks.get_stack_buildid_offs(i);
+    for (auto id_off : id_offs) {
+      if (id_off.status != 1)
+        continue;
+      std::cout << "key: " << i << " offset: " << id_off.offset
+                << " build id: ";
+      for (int j = 0; j < 20; ++j)
+        std::cout << std::setw(2) << std::setfill('0') << std::hex
+                  << ((int)(id_off.build_id[j]) & 0xff);
+      std::cout << std::dec << std::endl;
+    }
+  }
   std::cerr << "Terminating..." << std::endl;
   delete bpf;
   exit(0);
