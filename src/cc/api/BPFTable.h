@@ -218,6 +218,10 @@ struct stacktrace_t {
   uintptr_t ip[BPF_MAX_STACK_DEPTH];
 };
 
+struct stacktrace_buildid_offset_t {
+  struct bpf_stack_build_id_offset id_offs[BPF_MAX_STACK_DEPTH];
+};
+
 class BPFStackTable : public BPFTableBase<int, stacktrace_t> {
  public:
   BPFStackTable(const TableDesc& desc,
@@ -232,6 +236,21 @@ class BPFStackTable : public BPFTableBase<int, stacktrace_t> {
  private:
   bcc_symbol_option symbol_option_;
   std::map<int, void*> pid_sym_;
+};
+
+class BPFStackBuildIDOffsetTable :
+      public BPFTableBase<int, stacktrace_buildid_offset_t> {
+ public:
+  BPFStackBuildIDOffsetTable(const TableDesc& desc):
+      BPFTableBase<int, stacktrace_buildid_offset_t>(desc) {
+  }
+  ~BPFStackBuildIDOffsetTable() {}
+
+  std::vector<struct bpf_stack_build_id_offset>
+  get_stack_buildid_offs(int stack_id);
+
+ private:
+
 };
 
 class BPFPerfBuffer : public BPFTableBase<int, int> {

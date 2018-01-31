@@ -118,6 +118,9 @@ class BPF {
   BPFStackTable get_stack_table(const std::string& name,
                                 bool use_debug_file = true,
                                 bool check_debug_file_crc = true);
+  BPFStackBuildIDOffsetTable
+  get_stack_buidid_offset_table(const std::string& name);
+
 
   StatusTuple open_perf_event(const std::string& name, uint32_t type,
                               uint64_t config);
