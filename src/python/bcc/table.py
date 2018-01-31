@@ -719,7 +719,11 @@ class StackTrace(TableBase):
             if addr == 0 :
                 raise StopIteration()
 
-            return self.resolve(addr) if self.resolve else addr
+            if self.resolve:
+                return self.resolve(addr)
+            elif self.flag & (1 << 5) == 0:
+                return addr
+            return addr
 
     def walk(self, stack_id, resolve=None):
         return StackTrace.StackWalker(self[self.Key(stack_id)], resolve)
