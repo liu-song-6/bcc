@@ -183,8 +183,16 @@ struct bpf_stacktrace {
   u64 ip[BPF_MAX_STACK_DEPTH];
 };
 
+struct bpf_stacktrace_build_id {
+  struct bpf_stack_build_id id_offs[BPF_MAX_STACK_DEPTH];
+};
+
 #define BPF_STACK_TRACE(_name, _max_entries) \
   BPF_TABLE("stacktrace", int, struct bpf_stacktrace, _name, _max_entries);
+
+#define BPF_STACK_TRACE_BUILD_ID(_name, _max_entries) \
+  BPF_F_TABLE("stacktrace", int, struct bpf_stacktrace_build_id, \
+              _name, _max_entries, BPF_F_STACK_BUILD_ID)
 
 // packet parsing state machine helpers
 #define cursor_advance(_cursor, _len) \
