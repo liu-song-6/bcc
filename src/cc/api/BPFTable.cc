@@ -146,6 +146,23 @@ std::vector<std::string> BPFStackTable::get_stack_symbol(int stack_id,
   return res;
 }
 
+std::vector<struct bpf_stack_build_id>
+BPFStackTableBuildID::get_stack_build_id(int stack_id) {
+  std::vector<struct bpf_stack_build_id> res;
+  stacktrace_build_id_t stack;
+
+  if (!lookup(&stack_id, &stack))
+    return res;
+  for (int i = 0; i < BPF_MAX_STACK_DEPTH; i++) {
+    if (stack.id_offs[i].status < 0)
+      continue;  // skip invalid fields
+    if (stack.id_offs[i].status == BPF_STACK_BUILD_ID_EMPTY)
+      break;  // end of trace
+    res.push_back(stack.id_offs[i]);
+  }
+  return res;
+}
+
 StatusTuple BPFPerfBuffer::open_on_cpu(perf_reader_raw_cb cb,
                                        perf_reader_lost_cb lost_cb,
                                        int cpu, void* cb_cookie, int page_cnt) {

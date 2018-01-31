@@ -545,6 +545,14 @@ BPFStackTable BPF::get_stack_table(const std::string& name, bool use_debug_file,
   return BPFStackTable({}, use_debug_file, check_debug_file_crc);
 }
 
+BPFStackTableBuildID
+BPF::get_stack_table_build_id(const std::string& name) {
+  TableStorage::iterator it;
+  if (bpf_module_->table_storage().Find(Path({bpf_module_->id(), name}), it))
+    return BPFStackTableBuildID(it->second);
+  return BPFStackTableBuildID({});
+}
+
 std::string BPF::get_uprobe_event(const std::string& binary_path,
                                   uint64_t offset, bpf_probe_attach_type type,
                                   pid_t pid) {
